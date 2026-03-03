@@ -149,6 +149,9 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
             depends_on,
             project,
         } => {
+            if project == task_manager::DEFAULT_PROJECT_SLUG {
+                task_manager::ensure_default_project()?;
+            }
             task_manager::add_task_dep(&project, &task_id, &depends_on)?;
             let value = json!({
                 "task_id": task_id,
@@ -159,6 +162,9 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
         }
 
         TaskCommand::Get { task_id, project } => {
+            if project == task_manager::DEFAULT_PROJECT_SLUG {
+                task_manager::ensure_default_project()?;
+            }
             let (_proj, story_id, task) = task_manager::get_task(&project, &task_id)?;
             let value = json!({
                 "id": task.id,
@@ -177,6 +183,9 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
             story_id,
             project,
         } => {
+            if project == task_manager::DEFAULT_PROJECT_SLUG {
+                task_manager::ensure_default_project()?;
+            }
             let proj = task_manager::get_project(&project)?;
             let story = proj
                 .stories
@@ -207,6 +216,9 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
             reason,
             agent,
         } => {
+            if project == task_manager::DEFAULT_PROJECT_SLUG {
+                task_manager::ensure_default_project()?;
+            }
             let new_status = if let Some(ref s) = status {
                 Some(parse_status(s, reason.as_deref())?)
             } else {

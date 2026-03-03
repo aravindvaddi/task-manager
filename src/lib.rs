@@ -66,6 +66,11 @@ pub fn create_project(name: &str) -> Result<Project> {
             reason: "project name must contain at least one alphanumeric character".into(),
         });
     }
+    if slug == DEFAULT_PROJECT_SLUG {
+        return Err(Error::InvalidDependency {
+            reason: "'default' is a reserved project name".into(),
+        });
+    }
 
     // Check for duplicate
     let path = storage::get_storage_dir()?.join(format!("{slug}.json"));
@@ -113,6 +118,13 @@ pub fn add_story_dep(
     story_id: &str,
     depends_on: &str,
 ) -> Result<Project> {
+    // The default story cannot have dependencies — it must always be unblocked
+    if project_slug == DEFAULT_PROJECT_SLUG && story_id == DEFAULT_STORY_ID {
+        return Err(Error::InvalidDependency {
+            reason: "the default story cannot have dependencies".into(),
+        });
+    }
+
     let mut project = storage::load_project(project_slug)?;
 
     // Validate both stories exist
