@@ -78,7 +78,11 @@ fn has_cycle(adj: &HashMap<&str, Vec<&str>>, nodes: &[&str]) -> Result<()> {
 }
 
 /// Determine if a story is closed: all tasks closed AND at least 1 task exists.
+/// The default story never closes — it's a permanent inbox.
 pub fn is_story_closed(story: &Story) -> bool {
+    if story.id == crate::DEFAULT_STORY_ID {
+        return false;
+    }
     if story.tasks.is_empty() {
         return false;
     }

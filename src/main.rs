@@ -12,7 +12,10 @@ fn main() {
         cli::Commands::Project { command } => cli::project::handle(command, pretty),
         cli::Commands::Story { command } => cli::story::handle(command, pretty),
         cli::Commands::Task { command } => cli::task::handle(command, pretty),
-        cli::Commands::Next { project_slug } => {
+        cli::Commands::Next { project_slug } => (|| {
+            if project_slug == task_manager::DEFAULT_PROJECT_SLUG {
+                task_manager::ensure_default_project()?;
+            }
             match task_manager::next_task(&project_slug) {
                 Ok(Some((story_id, task))) => {
                     let value = json!({
@@ -37,7 +40,7 @@ fn main() {
                 }
                 Err(e) => Err(e),
             }
-        }
+        })()
     };
 
     if let Err(e) = result {

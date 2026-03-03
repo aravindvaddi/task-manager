@@ -34,7 +34,8 @@ pub enum Commands {
     },
     /// Get a random actionable task from a project
     Next {
-        /// Project slug
+        /// Project slug (defaults to "default")
+        #[arg(default_value = "default")]
         project_slug: String,
     },
 }

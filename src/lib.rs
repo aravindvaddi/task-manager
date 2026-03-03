@@ -7,6 +7,56 @@ use chrono::Utc;
 use error::{Error, Result};
 use models::*;
 
+/// Well-known slug for the default project.
+pub const DEFAULT_PROJECT_SLUG: &str = "default";
+/// Well-known story ID for the default (never-closing) story.
+pub const DEFAULT_STORY_ID: &str = "default";
+/// Human-readable name for the default project.
+pub const DEFAULT_PROJECT_NAME: &str = "Default";
+/// Human-readable name for the default story.
+pub const DEFAULT_STORY_NAME: &str = "Default";
+
+// ── Default project ────────────────────────────────────────────────
+
+/// Ensure the default project exists with its default story.
+/// Creates both if they don't exist. Returns the project.
+pub fn ensure_default_project() -> Result<Project> {
+    let project = match storage::load_project(DEFAULT_PROJECT_SLUG) {
+        Ok(mut p) => {
+            if !p.stories.contains_key(DEFAULT_STORY_ID) {
+                let story = Story {
+                    id: DEFAULT_STORY_ID.to_string(),
+                    name: DEFAULT_STORY_NAME.to_string(),
+                    tasks: std::collections::BTreeMap::new(),
+                    task_deps: Vec::new(),
+                    created_at: Utc::now(),
+                };
+                p.stories.insert(DEFAULT_STORY_ID.to_string(), story);
+                storage::save_project(&p)?;
+            }
+            p
+        }
+        Err(Error::ProjectNotFound { .. }) => {
+            let mut project = Project::new(
+                DEFAULT_PROJECT_NAME.to_string(),
+                DEFAULT_PROJECT_SLUG.to_string(),
+            );
+            let story = Story {
+                id: DEFAULT_STORY_ID.to_string(),
+                name: DEFAULT_STORY_NAME.to_string(),
+                tasks: std::collections::BTreeMap::new(),
+                task_deps: Vec::new(),
+                created_at: Utc::now(),
+            };
+            project.stories.insert(DEFAULT_STORY_ID.to_string(), story);
+            storage::save_project(&project)?;
+            project
+        }
+        Err(e) => return Err(e),
+    };
+    Ok(project)
+}
+
 // ── Project operations ──────────────────────────────────────────────
 
 pub fn create_project(name: &str) -> Result<Project> {

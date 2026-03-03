@@ -7,13 +7,14 @@ use task_manager::models::{CloseReason, TaskStatus};
 pub enum TaskCommand {
     /// Create a new task in a story
     Create {
-        /// Story ID (e.g., s1)
-        story_id: String,
         /// Task name
         name: String,
-        /// Project slug
+        /// Project slug (defaults to "default")
         #[arg(long)]
-        project: String,
+        project: Option<String>,
+        /// Story ID (e.g., s1). Defaults to "default" story in default project.
+        #[arg(long)]
+        story: Option<String>,
         /// Task description
         #[arg(long)]
         description: Option<String>,
@@ -26,7 +27,7 @@ pub enum TaskCommand {
         #[arg(long)]
         depends_on: String,
         /// Project slug
-        #[arg(long)]
+        #[arg(long, default_value = "default")]
         project: String,
     },
     /// Get full task details
@@ -34,15 +35,16 @@ pub enum TaskCommand {
         /// Task ID (e.g., t1)
         task_id: String,
         /// Project slug
-        #[arg(long)]
+        #[arg(long, default_value = "default")]
         project: String,
     },
     /// List tasks in a story
     List {
-        /// Story ID (e.g., s1)
+        /// Story ID (e.g., s1). Defaults to "default".
+        #[arg(default_value = "default")]
         story_id: String,
         /// Project slug
-        #[arg(long)]
+        #[arg(long, default_value = "default")]
         project: String,
     },
     /// Update a task's status and/or agent
@@ -50,7 +52,7 @@ pub enum TaskCommand {
         /// Task ID (e.g., t1)
         task_id: String,
         /// Project slug
-        #[arg(long)]
+        #[arg(long, default_value = "default")]
         project: String,
         /// New status: running, closed
         #[arg(long)]
@@ -99,13 +101,39 @@ fn parse_status(status: &str, reason: Option<&str>) -> task_manager::error::Resu
 pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()> {
     match cmd {
         TaskCommand::Create {
-            story_id,
             name,
             project,
+            story,
             description,
         } => {
+            let (project_slug, story_id) = match (project, story) {
+                (Some(p), Some(s)) => (p, s),
+                (Some(p), None) => {
+                    if p == task_manager::DEFAULT_PROJECT_SLUG {
+                        task_manager::ensure_default_project()?;
+                        (p, task_manager::DEFAULT_STORY_ID.to_string())
+                    } else {
+                        return Err(task_manager::error::Error::InvalidDependency {
+                            reason: "--story is required when --project is specified (unless project is 'default')".into(),
+                        });
+                    }
+                }
+                (None, None) => {
+                    task_manager::ensure_default_project()?;
+                    (
+                        task_manager::DEFAULT_PROJECT_SLUG.to_string(),
+                        task_manager::DEFAULT_STORY_ID.to_string(),
+                    )
+                }
+                (None, Some(_)) => {
+                    return Err(task_manager::error::Error::InvalidDependency {
+                        reason: "--project is required when --story is specified".into(),
+                    });
+                }
+            };
+
             let (_project, task) =
-                task_manager::create_task(&project, &story_id, &name, description.as_deref())?;
+                task_manager::create_task(&project_slug, &story_id, &name, description.as_deref())?;
             let value = json!({
                 "id": task.id,
                 "name": task.name,
