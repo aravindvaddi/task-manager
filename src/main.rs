@@ -12,35 +12,7 @@ fn main() {
         cli::Commands::Project { command } => cli::project::handle(command, pretty),
         cli::Commands::Story { command } => cli::story::handle(command, pretty),
         cli::Commands::Task { command } => cli::task::handle(command, pretty),
-        cli::Commands::Next { project_slug } => (|| {
-            if project_slug == task_manager::DEFAULT_PROJECT_SLUG {
-                task_manager::ensure_default_project()?;
-            }
-            match task_manager::next_task(&project_slug) {
-                Ok(Some((story_id, task))) => {
-                    let value = json!({
-                        "story_id": story_id,
-                        "task": {
-                            "id": task.id,
-                            "name": task.name,
-                            "description": task.description,
-                            "status": format!("{}", task.status),
-                        }
-                    });
-                    cli::output_json(&value, pretty);
-                    Ok(())
-                }
-                Ok(None) => {
-                    let value = json!({
-                        "task": null,
-                        "message": "no actionable tasks"
-                    });
-                    cli::output_json(&value, pretty);
-                    Ok(())
-                }
-                Err(e) => Err(e),
-            }
-        })()
+        cli::Commands::Next { project_slug } => cli::next::handle(&project_slug, pretty),
     };
 
     if let Err(e) = result {

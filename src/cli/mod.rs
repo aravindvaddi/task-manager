@@ -1,3 +1,4 @@
+pub mod next;
 pub mod project;
 pub mod story;
 pub mod task;
@@ -35,7 +36,7 @@ pub enum Commands {
     /// Get a random actionable task from a project
     Next {
         /// Project slug (defaults to "default")
-        #[arg(default_value = "default")]
+        #[arg(default_value = task_manager::DEFAULT_PROJECT_SLUG)]
         project_slug: String,
     },
 }

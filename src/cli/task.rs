@@ -2,6 +2,7 @@ use clap::Subcommand;
 use serde_json::json;
 
 use task_manager::models::{CloseReason, TaskStatus};
+use task_manager::DEFAULT_PROJECT_SLUG;
 
 #[derive(Subcommand)]
 pub enum TaskCommand {
@@ -27,7 +28,7 @@ pub enum TaskCommand {
         #[arg(long)]
         depends_on: String,
         /// Project slug
-        #[arg(long, default_value = "default")]
+        #[arg(long, default_value = DEFAULT_PROJECT_SLUG)]
         project: String,
     },
     /// Get full task details
@@ -35,16 +36,16 @@ pub enum TaskCommand {
         /// Task ID (e.g., t1)
         task_id: String,
         /// Project slug
-        #[arg(long, default_value = "default")]
+        #[arg(long, default_value = DEFAULT_PROJECT_SLUG)]
         project: String,
     },
     /// List tasks in a story
     List {
         /// Story ID (e.g., s1). Defaults to "default".
-        #[arg(default_value = "default")]
+        #[arg(default_value = task_manager::DEFAULT_STORY_ID)]
         story_id: String,
         /// Project slug
-        #[arg(long, default_value = "default")]
+        #[arg(long, default_value = DEFAULT_PROJECT_SLUG)]
         project: String,
     },
     /// Update a task's status and/or agent
@@ -52,7 +53,7 @@ pub enum TaskCommand {
         /// Task ID (e.g., t1)
         task_id: String,
         /// Project slug
-        #[arg(long, default_value = "default")]
+        #[arg(long, default_value = DEFAULT_PROJECT_SLUG)]
         project: String,
         /// New status: running, closed
         #[arg(long)]
@@ -98,6 +99,14 @@ fn parse_status(status: &str, reason: Option<&str>) -> task_manager::error::Resu
     }
 }
 
+/// Ensure the default project exists if the given slug is the default.
+fn ensure_default_if_needed(project: &str) -> task_manager::error::Result<()> {
+    if project == DEFAULT_PROJECT_SLUG {
+        task_manager::ensure_default_project()?;
+    }
+    Ok(())
+}
+
 pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()> {
     match cmd {
         TaskCommand::Create {
@@ -109,7 +118,7 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
             let (project_slug, story_id) = match (project, story) {
                 (Some(p), Some(s)) => (p, s),
                 (Some(p), None) => {
-                    if p == task_manager::DEFAULT_PROJECT_SLUG {
+                    if p == DEFAULT_PROJECT_SLUG {
                         task_manager::ensure_default_project()?;
                         (p, task_manager::DEFAULT_STORY_ID.to_string())
                     } else {
@@ -121,7 +130,7 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
                 (None, None) => {
                     task_manager::ensure_default_project()?;
                     (
-                        task_manager::DEFAULT_PROJECT_SLUG.to_string(),
+                        DEFAULT_PROJECT_SLUG.to_string(),
                         task_manager::DEFAULT_STORY_ID.to_string(),
                     )
                 }
@@ -149,9 +158,7 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
             depends_on,
             project,
         } => {
-            if project == task_manager::DEFAULT_PROJECT_SLUG {
-                task_manager::ensure_default_project()?;
-            }
+            ensure_default_if_needed(&project)?;
             task_manager::add_task_dep(&project, &task_id, &depends_on)?;
             let value = json!({
                 "task_id": task_id,
@@ -162,9 +169,7 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
         }
 
         TaskCommand::Get { task_id, project } => {
-            if project == task_manager::DEFAULT_PROJECT_SLUG {
-                task_manager::ensure_default_project()?;
-            }
+            ensure_default_if_needed(&project)?;
             let (_proj, story_id, task) = task_manager::get_task(&project, &task_id)?;
             let value = json!({
                 "id": task.id,
@@ -183,9 +188,7 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
             story_id,
             project,
         } => {
-            if project == task_manager::DEFAULT_PROJECT_SLUG {
-                task_manager::ensure_default_project()?;
-            }
+            ensure_default_if_needed(&project)?;
             let proj = task_manager::get_project(&project)?;
             let story = proj
                 .stories
@@ -216,9 +219,7 @@ pub fn handle(cmd: TaskCommand, pretty: bool) -> task_manager::error::Result<()>
             reason,
             agent,
         } => {
-            if project == task_manager::DEFAULT_PROJECT_SLUG {
-                task_manager::ensure_default_project()?;
-            }
+            ensure_default_if_needed(&project)?;
             let new_status = if let Some(ref s) = status {
                 Some(parse_status(s, reason.as_deref())?)
             } else {

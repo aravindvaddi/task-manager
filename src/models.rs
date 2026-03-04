@@ -87,6 +87,18 @@ pub struct Project {
     pub created_at: DateTime<Utc>,
 }
 
+impl Story {
+    pub fn new(id: String, name: String) -> Self {
+        Self {
+            id,
+            name,
+            tasks: BTreeMap::new(),
+            task_deps: Vec::new(),
+            created_at: chrono::Utc::now(),
+        }
+    }
+}
+
 impl Project {
     pub fn new(name: String, slug: String) -> Self {
         Self {

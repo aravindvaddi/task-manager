@@ -19,42 +19,25 @@ pub const DEFAULT_STORY_NAME: &str = "Default";
 // ── Default project ────────────────────────────────────────────────
 
 /// Ensure the default project exists with its default story.
-/// Creates both if they don't exist. Returns the project.
-pub fn ensure_default_project() -> Result<Project> {
-    let project = match storage::load_project(DEFAULT_PROJECT_SLUG) {
-        Ok(mut p) => {
-            if !p.stories.contains_key(DEFAULT_STORY_ID) {
-                let story = Story {
-                    id: DEFAULT_STORY_ID.to_string(),
-                    name: DEFAULT_STORY_NAME.to_string(),
-                    tasks: std::collections::BTreeMap::new(),
-                    task_deps: Vec::new(),
-                    created_at: Utc::now(),
-                };
-                p.stories.insert(DEFAULT_STORY_ID.to_string(), story);
-                storage::save_project(&p)?;
-            }
-            p
-        }
+/// Creates both if they don't exist.
+pub fn ensure_default_project() -> Result<()> {
+    let mut project = match storage::load_project(DEFAULT_PROJECT_SLUG) {
+        Ok(p) => p,
         Err(Error::ProjectNotFound { .. }) => {
-            let mut project = Project::new(
-                DEFAULT_PROJECT_NAME.to_string(),
-                DEFAULT_PROJECT_SLUG.to_string(),
-            );
-            let story = Story {
-                id: DEFAULT_STORY_ID.to_string(),
-                name: DEFAULT_STORY_NAME.to_string(),
-                tasks: std::collections::BTreeMap::new(),
-                task_deps: Vec::new(),
-                created_at: Utc::now(),
-            };
-            project.stories.insert(DEFAULT_STORY_ID.to_string(), story);
-            storage::save_project(&project)?;
-            project
+            Project::new(DEFAULT_PROJECT_NAME.to_string(), DEFAULT_PROJECT_SLUG.to_string())
         }
         Err(e) => return Err(e),
     };
-    Ok(project)
+
+    if !project.stories.contains_key(DEFAULT_STORY_ID) {
+        project.stories.insert(
+            DEFAULT_STORY_ID.to_string(),
+            Story::new(DEFAULT_STORY_ID.to_string(), DEFAULT_STORY_NAME.to_string()),
+        );
+        storage::save_project(&project)?;
+    }
+
+    Ok(())
 }
 
 // ── Project operations ──────────────────────────────────────────────
@@ -101,13 +84,7 @@ pub fn get_project(slug: &str) -> Result<Project> {
 pub fn create_story(project_slug: &str, name: &str) -> Result<(Project, Story)> {
     let mut project = storage::load_project(project_slug)?;
     let id = project.next_story_id();
-    let story = Story {
-        id: id.clone(),
-        name: name.to_string(),
-        tasks: std::collections::BTreeMap::new(),
-        task_deps: Vec::new(),
-        created_at: Utc::now(),
-    };
+    let story = Story::new(id.clone(), name.to_string());
     project.stories.insert(id.clone(), story.clone());
     storage::save_project(&project)?;
     Ok((project, story))
@@ -275,8 +252,8 @@ pub fn update_task(
 ) -> Result<(Project, Task)> {
     let mut project = storage::load_project(project_slug)?;
 
-    // Find the task
-    let mut found = false;
+    // Find and update the task
+    let mut updated_task = None;
     for story in project.stories.values_mut() {
         if let Some(task) = story.tasks.get_mut(task_id) {
             if let Some(ref status) = new_status {
@@ -287,26 +264,16 @@ pub fn update_task(
                 task.agent = Some(agent_name.to_string());
             }
             task.updated_at = Utc::now();
-            found = true;
+            updated_task = Some(task.clone());
             break;
         }
     }
 
-    if !found {
-        return Err(Error::TaskNotFound {
-            id: task_id.to_string(),
-        });
-    }
+    let task = updated_task.ok_or_else(|| Error::TaskNotFound {
+        id: task_id.to_string(),
+    })?;
 
     storage::save_project(&project)?;
-
-    // Return updated task
-    let task = project
-        .stories
-        .values()
-        .find_map(|story| story.tasks.get(task_id).cloned())
-        .expect("task was just updated, must exist");
-
     Ok((project, task))
 }
 
